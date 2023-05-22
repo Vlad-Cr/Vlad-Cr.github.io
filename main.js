@@ -33,6 +33,10 @@ let ProjectionMatrix = m4.translation(0, 0, 0);
 let TextureWebCam;
 let video;
 
+let SensorAlpha;
+let SensorBeta;
+let SensorGamma;
+
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
@@ -122,7 +126,8 @@ function draw() {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
-    let SpaceBallView = spaceball.getViewMatrix();
+    //let SpaceBallView = spaceball.getViewMatrix();
+    let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
 
     DrawWebCamVideo();
 
@@ -132,7 +137,7 @@ function draw() {
 
     let Matrixes = StrCamera.ApplyLeftFrustum();
     ModelView = Matrixes[0];
-    ModelView = m4.multiply(ModelView, SpaceBallView);
+    ModelView = m4.multiply(ModelView, SensorRotationMatrix);
     ProjectionMatrix = Matrixes[1];
 
     gl.colorMask(true, false, false, false);
@@ -142,7 +147,7 @@ function draw() {
 
     Matrixes = StrCamera.ApplyRightFrustum();
     ModelView = Matrixes[0];
-    ModelView = m4.multiply(ModelView, SpaceBallView);
+    ModelView = m4.multiply(ModelView, SensorRotationMatrix);
     ProjectionMatrix = Matrixes[1];
 
     gl.colorMask(false, true, true, false);
@@ -497,6 +502,14 @@ ConvergenceDistanceRange.addEventListener("input", (event) => {
     draw();
   })
 
+window.addEventListener('deviceorientation', function (event) {  
+    SensorAlpha = event.alpha;
+    SensorBeta = event.beta;
+    SensorGamma = event.gamma;
+
+    draw();
+});
+
 window.addEventListener("keydown", function (event) {  
     switch (event.key) {
       case "ArrowLeft":
@@ -644,4 +657,59 @@ function clamp(value, min, max)
     }
 
     return value;
+}
+
+
+
+function getRotationMatrix( alpha, beta, gamma ) {
+
+    var degtorad = Math.PI / 180; // Degree-to-Radian conversion
+
+    var _x = beta  ? beta  * degtorad : 0; // beta value
+    var _y = gamma ? gamma * degtorad : 0; // gamma value
+    var _z = alpha ? alpha * degtorad : 0; // alpha value
+
+    var cX = Math.cos( _x );
+    var cY = Math.cos( _y );
+    var cZ = Math.cos( _z );
+    var sX = Math.sin( _x );
+    var sY = Math.sin( _y );
+    var sZ = Math.sin( _z );
+
+    //
+    // ZXY rotation matrix construction.
+    //
+
+    var m11 = cZ * cY - sZ * sX * sY;
+    var m12 = - cX * sZ;
+    var m13 = cY * sZ * sX + cZ * sY;
+
+    var m21 = cY * sZ + cZ * sX * sY;
+    var m22 = cZ * cX;
+    var m23 = sZ * sY - cZ * cY * sX;
+
+    var m31 = - cX * sY;
+    var m32 = sX;
+    var m33 = cX * cY;
+
+    let dst = new Float32Array(16);
+
+    dst[0] = m11;
+    dst[1] = m12;
+    dst[2] = m13;
+    dst[3] = 0.0;
+    dst[4] = m21;
+    dst[5] = m22;
+    dst[6] = m23;
+    dst[7] = 0.0;
+    dst[8] = m31;
+    dst[9] = m32;
+    dst[10] = m33;
+    dst[11] = 0.0;
+    dst[12] = 0.0;
+    dst[13] = 0.0;
+    dst[14] = 0.0;
+    dst[15] = 1.0;
+
+    return dst;
 }
