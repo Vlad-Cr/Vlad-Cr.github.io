@@ -33,9 +33,9 @@ let ProjectionMatrix = m4.translation(0, 0, 0);
 let TextureWebCam;
 let video;
 
-let SensorAlpha;
-let SensorBeta;
-let SensorGamma;
+let SensorAlpha = 0.0;
+let SensorBeta = 0.0;
+let SensorGamma = 0.0;
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
@@ -463,6 +463,8 @@ function playVideo(){
     setInterval(playVideo, 1/24);
 }
 
+const dataContainerOrientation = document.getElementById('dataContainerOrientation');
+
 const EyeSeparationRange = document.getElementById("eye_separation");
 const FieldOfViewRange = document.getElementById("field_of_view");
 const NearClippingDistanceRange = document.getElementById("near_clipping_distance");
@@ -502,13 +504,25 @@ ConvergenceDistanceRange.addEventListener("input", (event) => {
     draw();
   })
 
-window.addEventListener('deviceorientation', function (event) {  
-    SensorAlpha = event.alpha;
-    SensorBeta = event.beta;
-    SensorGamma = event.gamma;
+if(window.DeviceOrientationEvent) 
+{ 
+    alert("DeviceOrientationEvent works!");
 
-    draw();
-});
+    dataContainerOrientation.innerHTML = 'alpha: ' + SensorAlpha + '  beta: ' + SensorBeta + '  gamma: ' + SensorGamma;
+
+    window.addEventListener('deviceorientation', function (event) {  
+        SensorAlpha = event.alpha;
+        SensorBeta = event.beta;
+        SensorGamma = event.gamma;
+    
+        if(SensorAlpha!=null || SensorBeta!=null || SensorGamma!=null) 
+        {
+            dataContainerOrientation.innerHTML = 'alpha: ' + SensorAlpha + '  beta: ' + SensorBeta + '  gamma: ' + SensorGamma;
+        }
+      
+        draw();
+    });
+}
 
 window.addEventListener("keydown", function (event) {  
     switch (event.key) {
