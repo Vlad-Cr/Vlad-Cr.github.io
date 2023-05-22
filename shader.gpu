@@ -1,0 +1,104 @@
+
+
+// Vertex shader
+const vertexShaderSource = `
+attribute vec3 vertex;
+attribute vec3 normal;
+attribute vec2 texcoord;
+
+uniform mat4 ModelViewProjectionMatrix;
+uniform mat4 WorldInverseTranspose;
+uniform mat4 WorldMatrix;
+uniform vec3 LightWorldPosition;
+uniform vec3 ViewWorldPosition;
+
+uniform vec2 ScalePointLocation;
+uniform float ScaleValue;
+uniform vec3 ScalePointWorldLocation;
+
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec2 v_texcoord;
+
+vec2 ScaleTextCoords(vec2 TexCoords, float Value, vec2 ScalePoint)
+{
+    vec3 CalculatedTextCoords = vec3(TexCoords, 1);
+   
+    mat3 ScaleMatrix = mat3(vec3(Value, 0.0, 0.0),
+                            vec3(0.0, Value, 0.0),
+                            vec3(0.0, 0.0, 1.0));
+
+    mat3 TransformForward = mat3(vec3(1.0, 0.0, 0.0),
+                                 vec3(0.0, 1.0, 0.0),
+                                 vec3(-ScalePoint.x, -ScalePoint.y, 1.0));
+
+    mat3 TransformBackward = mat3(vec3(1.0, 0.0, 0.0),
+                                  vec3(0.0, 1.0, 0.0),
+                                  vec3(ScalePoint.x, ScalePoint.y, 1.0));
+
+    CalculatedTextCoords = TransformForward * CalculatedTextCoords;
+    CalculatedTextCoords = ScaleMatrix * CalculatedTextCoords;
+    CalculatedTextCoords = TransformBackward * CalculatedTextCoords;
+
+    return CalculatedTextCoords.xy;
+}
+
+void main() { 
+    gl_Position = ModelViewProjectionMatrix * vec4(vertex,1.0);
+
+    v_normal = mat3(WorldInverseTranspose) * normal;
+
+    vec3 surfaceWorldPosition = (WorldMatrix * vec4(vertex, 1.0)).xyz;
+    v_surfaceToLight = LightWorldPosition - surfaceWorldPosition;
+    v_surfaceToView = ViewWorldPosition - surfaceWorldPosition;
+
+    v_texcoord = ScaleTextCoords(texcoord, ScaleValue, ScalePointLocation);
+}
+`;
+
+
+// Fragment shader
+const fragmentShaderSource = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+   precision highp float;
+#else
+   precision mediump float;
+#endif
+
+uniform vec4 color;
+uniform vec3 LightDirection;
+
+varying vec3 v_normal;
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec2 v_texcoord;
+
+uniform sampler2D u_texture;
+
+void main() {
+   
+    vec3 normal = normalize(v_normal);
+
+    vec3 surfaceToLightDirection = normalize(v_surfaceToLight);
+    vec3 surfaceToViewDirection = normalize(v_surfaceToView);
+    vec3 halfVector = normalize(surfaceToLightDirection + surfaceToViewDirection);
+
+    float shininess = 8.0;
+
+    float innerLimit = cos(5.0 * 3.1415 / 180.0);
+    float outerLimit = cos(15.0 * 3.1415 / 180.0);
+
+    float dotFromDirection = dot(surfaceToLightDirection, -LightDirection);
+    float inLight = smoothstep(outerLimit, innerLimit, dotFromDirection);
+    float light = inLight * dot(normal, surfaceToLightDirection);
+    float specular = inLight * pow(dot(normal, halfVector), shininess);
+
+    vec4 TextureColor = texture2D(u_texture, v_texcoord);
+
+    //gl_FragColor = color;
+    //gl_FragColor.rgb *= light;
+    //gl_FragColor.rgb += specular;
+
+    gl_FragColor += TextureColor;
+}`;
