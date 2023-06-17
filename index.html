@@ -11,31 +11,27 @@
 </head>
 <body onload="init()">
 
+<h2>Calculation&graphics work (Spatial audio)</h2>
 <h2>Surface: Wallis's conical edge, variant - №24</h2>
 <h2>Create by Vladyslav Chornyi TR-23mp</h2>
-<h2>GitHub reference: https://github.com/Vlad-Cr/Stereo-camera</h2>
+<h2>GitHub reference: https://github.com/Vlad-Cr/Vlad-Cr.github.io</h2>
 
 <p>
     <div id="dataContainerOrientation">
         No device orientation data
     </div>
-</p>  
+</p>
 
-<label for="eye_separation">Eye separation: </label>
-<output id="eye_separation_value"></output>
-<input type="range" id="eye_separation" name="eye_separation" min="-100" max="100" step="1" />
+<div id="audiodiv">
+    <audio id="audio" src="./Metamorphosis.mp3" autoplay controls loop></audio>
+    <input type="checkbox" id="filterCheck" /> Bandpass filter
+</div>
 
-<label for="field_of_view">Field of View:</label>
-<output id="field_of_view_value"></output>
-<input type="range" id="field_of_view" name="field_of_view" min="-100" max="100" step="1" />
-
-<label for="near_clipping_distance">Near Clipping distance:</label>
-<output id="near_clipping_distance_value"></output>
-<input type="range" id="near_clipping_distance" name="near_clipping_distance" min="-100" max="100" step="1" />
-
-<label for="convergence_distance">Convergence distance:</label>
-<output id="convergence_distance_value"></output>
-<input type="range" id="convergence_distance" name="convergence_distance" min="-100" max="100" step="1" />
+<div id="sphere">
+    <p id="SphereX">Sphere X :</p>
+    <p id="SphereY">Sphere Y :</p>
+    <p id="SphereZ">Sphere Z :</p>
+</div>
 
 <div id="canvas-holder">
    <canvas width="600 " height="600" id="webglcanvas" style="background-color:rgb(0, 0, 0)"></canvas>

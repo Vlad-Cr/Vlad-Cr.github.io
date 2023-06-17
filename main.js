@@ -37,6 +37,16 @@ let SensorAlpha = 0.0;
 let SensorBeta = 0.0;
 let SensorGamma = 0.0;
 
+let AudioSphere;
+let sound = { audioCtx: null, source: null, panner: null, filter: null }
+let audioSource = null
+let sphereRadius = 0.3
+let sphereWidth = 20
+let sphereHeight = 20
+let sphereX = 0
+let sphereY = 0
+let sphereZ = -10
+
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
@@ -126,34 +136,45 @@ function draw() {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
-    //let SpaceBallView = spaceball.getViewMatrix();
-    let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
-
     DrawWebCamVideo();
 
     gl.clear(gl.DEPTH_BUFFER_BIT) ;
 
-    StrCamera.Update(ConvergenceDistanceValue, EyeSeparationValue, FieldOfViewValue, NearClippingDistanceValue);
-
-    let Matrixes = StrCamera.ApplyLeftFrustum();
-    ModelView = Matrixes[0];
-    ModelView = m4.multiply(ModelView, SensorRotationMatrix);
-    ProjectionMatrix = Matrixes[1];
-
-    gl.colorMask(true, false, false, false);
+    ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 8, 12)
     DrawSurface();
+    DrawSphere();
+}
 
-    gl.clear(gl.DEPTH_BUFFER_BIT) ;
+function DrawSphere()
+{
+    if (sound.panner) {
+        sound.panner.positionX.value = sphereX
+        sound.panner.positionY.value = sphereY
+        sound.panner.positionZ.value = sphereZ
+        document.getElementById('SphereX').innerHTML = 'Sphere X: ' + sphereX
+        document.getElementById('SphereY').innerHTML = 'Sphere Y: ' + sphereY
+        document.getElementById('SphereZ').innerHTML = 'Sphere Z: ' + sphereZ
+    }
 
-    Matrixes = StrCamera.ApplyRightFrustum();
-    ModelView = Matrixes[0];
-    ModelView = m4.multiply(ModelView, SensorRotationMatrix);
-    ProjectionMatrix = Matrixes[1];
+    let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
 
-    gl.colorMask(false, true, true, false);
-    DrawSurface();
+    ModelView = spaceball.getViewMatrix();
+    ModelView = m4.multiply(ModelView, SensorRotationMatrix );
+    let WorldViewMatrix = m4.multiply([sphereX, sphereY, sphereZ], ModelView );
+    let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
 
-    gl.colorMask(true, true, true, true);
+    let worldInverseMatrix = m4.inverse(WorldViewMatrix);
+    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
+
+    gl.uniform3fv(shProgram.iViewWorldPosition, [0, 0, 0]); 
+
+    gl.uniformMatrix4fv(shProgram.iWorldInverseTranspose, false, worldInverseTransposeMatrix);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
+    gl.uniformMatrix4fv(shProgram.iWorldMatrix, false, WorldViewMatrix );
+    
+    gl.uniform4fv(shProgram.iColor, [1.0,0.0,1.0,1] )
+
+    sphere.Draw()
 }
 
 function DrawSurface()
@@ -274,6 +295,30 @@ function CreateSurfaceData()
     return [vertexList, normalsList, textCoords];
 }
 
+function CreateSphereData(radius, widthSegments, heightSegments) {
+    let coordinates = []
+  
+    for (var i = 0; i <= sphereHeight; i++) {
+      let theta = (i * Math.PI) / sphereHeight
+      let sinTheta = Math.sin(theta)
+      let cosTheta = Math.cos(theta)
+  
+      for (var j = 0; j <= sphereWidth; j++) {
+        let phi = (j * 2 * Math.PI) / sphereWidth
+        let sinPhi = Math.sin(phi)
+        let cosPhi = Math.cos(phi)
+  
+        let x = cosPhi * sinTheta
+        let y = cosTheta
+        let z = sinPhi * sinTheta
+  
+        coordinates.push(x * sphereRadius, y * sphereRadius, z * sphereRadius)
+      }
+    }
+  
+    return coordinates
+  }
+
 function CalcX(u, v)
 {
     let uRad =  deg2rad(u);
@@ -369,6 +414,10 @@ function initGL() {
     let SurfaceData = CreateSurfaceData();
     surface.BufferData(SurfaceData[0], SurfaceData[1], SurfaceData[2]);
 
+    surface = new Model('Sphere');
+    let SphereData = CreateSphereData()
+    surface.BufferData(SphereData[0], SphereData[1], SphereData[2]);
+
     BackgroundVideoModel = new Model();
     let BackgroundData = CreateBackgroundData();
     BackgroundVideoModel.BufferData(BackgroundData[0], BackgroundData[1], BackgroundData[2]);
@@ -450,12 +499,13 @@ function init() {
         console.error('Rejected!', e);
     });
 
-    SetUpWebCamTexture();
+    SetUpWebCamTexture()
 
-    spaceball = new TrackballRotator(canvas, draw, 0);
-    LoadTexture();
+    spaceball = new TrackballRotator(canvas, draw, 0)
+    LoadTexture()
   
-    playVideo();
+    playVideo()
+    BeginAudio()
 }
 
 function playVideo(){
@@ -463,46 +513,54 @@ function playVideo(){
     setInterval(playVideo, 1/24);
 }
 
+function setupAudio() {
+    audioSource = document.getElementById('audio')
+  
+    audioSource.addEventListener('play', () => {
+      if (!sound.audioCtx) {
+        sound.audioCtx = new window.AudioContext()
+        sound.source = sound.audioCtx.createMediaElementSource(audioSource)
+        sound.panner = sound.audioCtx.createPanner()
+        sound.filter = sound.audioCtx.createBiquadFilter()
+  
+        // Filter settings
+        sound.filter.type = 'bandpass'
+        sound.filter.detune.value = 10
+        sound.filter.frequency.value = 700
+  
+        // Connecting nodes
+        sound.source.connect(sound.panner)
+        sound.panner.connect(sound.audioCtx.destination)
+      }
+      sound.audioCtx.resume()
+    })
+  
+    audioSource.addEventListener('pause', () => {
+      if (sound.audioCtx) {
+        sound.audioCtx.suspend()
+      }
+    })
+}
+
+function BeginAudio() {
+    setupAudio()
+  
+    let filterCheck = document.getElementById('filterCheck')
+  
+    filterCheck.addEventListener('change', () => {
+      if (filterCheck.checked) {
+        sound.panner.disconnect()
+        sound.panner.connect(sound.filter)
+        sound.filter.connect(sound.audioCtx.destination)
+      } else {
+        sound.panner.disconnect()
+        sound.panner.connect(sound.audioCtx.destination)
+      }
+    })
+    audioSource.play()
+}
+
 const dataContainerOrientation = document.getElementById('dataContainerOrientation');
-
-const EyeSeparationRange = document.getElementById("eye_separation");
-const FieldOfViewRange = document.getElementById("field_of_view");
-const NearClippingDistanceRange = document.getElementById("near_clipping_distance");
-const ConvergenceDistanceRange = document.getElementById("convergence_distance");
-
-const EyeSeparationOut = document.getElementById("eye_separation_value");
-const FieldOfViewOut = document.getElementById("field_of_view_value");
-const NearClippingDistanceOut = document.getElementById("near_clipping_distance_value");
-const ConvergenceDistanceOut = document.getElementById("convergence_distance_value");
-
-EyeSeparationOut.textContent = EyeSeparationValue;
-FieldOfViewOut.textContent = FieldOfViewValue;
-NearClippingDistanceOut.textContent = NearClippingDistanceValue;
-ConvergenceDistanceOut.textContent = ConvergenceDistanceValue;
-
-EyeSeparationRange.addEventListener("input", (event) => {
-    EyeSeparationValue = Number(event.target.value);
-    EyeSeparationOut.textContent = EyeSeparationValue;
-    draw();
-  })
-
-FieldOfViewRange.addEventListener("input", (event) => {
-    FieldOfViewValue = Number(event.target.value);
-    FieldOfViewOut.textContent = FieldOfViewValue;
-    draw();
-  })
-
-NearClippingDistanceRange.addEventListener("input", (event) => {
-    NearClippingDistanceValue = Number(event.target.value);
-    NearClippingDistanceOut.textContent = NearClippingDistanceValue;
-    draw();
-  })
-
-ConvergenceDistanceRange.addEventListener("input", (event) => {
-    ConvergenceDistanceValue = Number(event.target.value);
-    ConvergenceDistanceOut.textContent = ConvergenceDistanceValue;
-    draw();
-  })
 
 if(window.DeviceOrientationEvent) 
 { 
