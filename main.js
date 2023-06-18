@@ -100,7 +100,7 @@ function draw() {
 
 function DrawSphere()
 {
-    let ModelView = spaceball.getViewMatrix()//getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma)
+    let ModelView = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma)
     let WorldMatrix = m4.translation(0, 0, -30);
     let ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 1, 100)
 
