@@ -436,6 +436,21 @@ function setupAudio() {
         sound.audioCtx.suspend()
       }
     })
+
+    let filterCheck = document.getElementById('filterCheck')
+    filterCheck.addEventListener('change', () => {
+        if (filterCheck.checked) 
+        {
+            sound.panner.disconnect()
+            sound.panner.connect(sound.filter)
+            sound.filter.connect(sound.audioCtx.destination)
+        } 
+        else 
+        {
+            sound.panner.disconnect()
+            sound.panner.connect(sound.audioCtx.destination)
+        }
+    })
   }
 
 const dataContainerOrientation = document.getElementById('dataContainerOrientation');
