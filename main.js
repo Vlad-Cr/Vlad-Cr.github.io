@@ -5,30 +5,10 @@ let surface;                    // A surface model
 let BackgroundVideoModel;
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let InputCounter = 0.0;
-let ScalePointLocationU = 0.0;
-let ScalePointLocationV = 0.0;
-let ControllerScaleValue = 1;
+
 let CanvasWidth;
 let CanvasHeight;
 let SurfaceTexture;
-
-let EyeSeparationValue = 7.0;
-let FieldOfViewValue = 45.0;
-let NearClippingDistanceValue = 1.0;
-let ConvergenceDistanceValue = 10;
-
-let StrCamera = new StereoCamera(
-            ConvergenceDistanceValue,    // Convergence
-            EyeSeparationValue,          // Eye Separation
-            1.33,                         // Aspect Ratio
-            FieldOfViewValue,            // FOV along Y in degrees
-            NearClippingDistanceValue,   // Near Clipping Distance
-            20000.0);                    // Far Clipping Distance
-
-let WorldMatrix = m4.translation(0, 0, -10);
-let ModelView = m4.translation(0, 0, 0);
-let ProjectionMatrix = m4.translation(0, 0, 0);
 
 let TextureWebCam;
 let video;
@@ -40,12 +20,14 @@ let SensorGamma = 0.0;
 let AudioSphere;
 let sound = { audioCtx: null, source: null, panner: null, filter: null }
 let audioSource = null
-let sphereRadius = 0.3
-let sphereWidth = 20
-let sphereHeight = 20
+
+let sphereRadius = 0.5
+let sphereWidth = 5
+let sphereHeight = 5
+
 let sphereX = 0
 let sphereY = 0
-let sphereZ = -10
+let sphereZ = 0
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
@@ -55,26 +37,17 @@ function deg2rad(angle) {
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
-    this.iNormalBuffer = gl.createBuffer();
     this.iTextureBuffer = gl.createBuffer();
-
-    this.iPointVertexBuffer = gl.createBuffer();
 
     this.count = 0;
 
-    this.BufferData = function(vertices, normals, texCoords) {
+    this.BufferData = function(vertices, texCoords) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
-       
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STREAM_DRAW);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iPointVertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0]), gl.DYNAMIC_DRAW);
 
         this.count = vertices.length/3;
     }
@@ -83,10 +56,6 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
-        gl.vertexAttribPointer(shProgram.iNormalVertex, 3, gl.FLOAT, true, 0, 0);
-        gl.enableVertexAttribArray(shProgram.iNormalVertex);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextureBuffer);
         gl.vertexAttribPointer(shProgram.iTextureCoords, 2, gl.FLOAT, false, 0, 0);
@@ -103,31 +72,22 @@ function ShaderProgram(name, program) {
     this.prog = program;
 
     this.iAttribVertex = -1;
-    this.iNormalVertex = -1;
     this.iTextureCoords = -1;
 
     this.iColor = -1;
 
     this.iModelViewProjectionMatrix = -1;
-    this.iWorldMatrix = -1;
-    this.iWorldInverseTranspose = -1;
-
-    this.iLightWorldPosition = -1;
-    this.iLightDirection = -1;
-
-    this.iViewWorldPosition = -1;
 
     this.iTexture = -1;
-
-    this.iScalePointLocation = -1;
-    this.iScaleValue = -1;
-
-    this.iScalePointWorldLocation = -1;
    
     this.Use = function() {
         gl.useProgram(this.prog);
     }
 }
+
+let WorldMatrix = m4.translation(0, 0, -10);
+let ModelView = m4.translation(0, 0, 0);
+let ProjectionMatrix = m4.translation(0, 0, 0);
 
 function draw() { 
     gl.clearColor(0,0,0,1);
@@ -138,54 +98,46 @@ function draw() {
 
     DrawWebCamVideo();
 
-    gl.clear(gl.DEPTH_BUFFER_BIT) ;
-
     ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 8, 12)
-    DrawSurface();
-    DrawSphere();
+    //DrawSurface();
+    //DrawSphere();
 }
 
 function DrawSphere()
 {
+    //let spaceballModelView = spaceball.getViewMatrix();
+    //let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
+    /*
     if (sound.panner) {
         sound.panner.positionX.value = sphereX
         sound.panner.positionY.value = sphereY
         sound.panner.positionZ.value = sphereZ
-        document.getElementById('SphereX').innerHTML = 'Sphere X: ' + sphereX
-        document.getElementById('SphereY').innerHTML = 'Sphere Y: ' + sphereY
-        document.getElementById('SphereZ').innerHTML = 'Sphere Z: ' + sphereZ
     }
-
-    let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
-
-    ModelView = spaceball.getViewMatrix();
-    ModelView = m4.multiply(ModelView, SensorRotationMatrix );
-    let WorldViewMatrix = m4.multiply([sphereX, sphereY, sphereZ], ModelView );
-    let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
-
-    let worldInverseMatrix = m4.inverse(WorldViewMatrix);
-    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
-
-    gl.uniform3fv(shProgram.iViewWorldPosition, [0, 0, 0]); 
-
-    gl.uniformMatrix4fv(shProgram.iWorldInverseTranspose, false, worldInverseTransposeMatrix);
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
-    gl.uniformMatrix4fv(shProgram.iWorldMatrix, false, WorldViewMatrix );
-    
-    gl.uniform4fv(shProgram.iColor, [1.0,0.0,1.0,1] )
-
-    sphere.Draw()
-}
-
-function DrawSurface()
-{
+*/
     let WorldViewMatrix = m4.multiply(WorldMatrix, ModelView );
     let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
 
     let worldInverseMatrix = m4.inverse(WorldViewMatrix);
     let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
 
-    gl.uniform3fv(shProgram.iViewWorldPosition, [0, 0, 0]); 
+    gl.uniformMatrix4fv(shProgram.iWorldInverseTranspose, false, worldInverseTransposeMatrix);
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
+    gl.uniformMatrix4fv(shProgram.iWorldMatrix, false, WorldViewMatrix );
+
+    gl.uniform4fv(shProgram.iColor, [1.0,0.0,0.0,1] )
+
+    AudioSphere.Draw()
+}
+
+function DrawSurface()
+{
+    let rotateToPointZero = m4.axisRotation([0.107, 0.707, 0], 0.7)
+    let matAccum0 = m4.multiply(rotateToPointZero, ModelView)
+    let WorldViewMatrix = m4.multiply(WorldMatrix, ModelView );
+    let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
+
+    let worldInverseMatrix = m4.inverse(WorldViewMatrix);
+    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
 
     gl.uniform3fv(shProgram.iLightWorldPosition, CalcParabola());
     gl.uniform3fv(shProgram.iLightDirection, [0, -1, 0]);
@@ -205,6 +157,7 @@ function DrawSurface()
 
 function DrawWebCamVideo()
 {
+    gl.uniform4fv(shProgram.iColor, [0.0,0.0,0.0,1] )
     gl.bindTexture(gl.TEXTURE_2D, TextureWebCam);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
     
@@ -229,10 +182,9 @@ function CreateBackgroundData()
                         -CanvasWidth / 2.0, -CanvasHeight / 2.0, 0,
                         CanvasWidth / 2.0, CanvasHeight / 2.0, 0,
                         CanvasWidth / 2.0, -CanvasHeight / 2.0, 0];
-    let normalsList = [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1];
     let textCoords = [1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1];
 
-    return [vertexList, normalsList, textCoords];
+    return [vertexList, textCoords];
 }
 
 function CreateSurfaceData()
@@ -244,7 +196,6 @@ function CreateSurfaceData()
     let DeltaV = 0.0001;
 
     let vertexList = [];
-    let normalsList = [];
     let textCoords = [];
 
     for (let u = 0; u < uend; u += step) {
@@ -273,30 +224,17 @@ function CreateSurfaceData()
             z = CalcZ(unext, v);
             vertexList.push( x, y, z );
 
-            // Normals
-
-            let DerivativeU = CalcDerivativeU(u, v, DeltaU);
-            let DerivativeV = CalcDerivativeV(u, v, DeltaV);
-
-            let result = m4.cross(DerivativeV, DerivativeU);
-            normalsList.push(result[0], result[1], result[2]);
-
-            DerivativeU = CalcDerivativeU(unext, v, DeltaU);
-            DerivativeV = CalcDerivativeV(unext, v, DeltaV);
-
-            result = m4.cross(DerivativeV, DerivativeU);
-            normalsList.push(result[0], result[1], result[2]);
-
             textCoords.push(u / uend, v / vend);
             textCoords.push(unext / uend, v / vend);
         }
     }
 
-    return [vertexList, normalsList, textCoords];
+    return [vertexList, textCoords];
 }
 
-function CreateSphereData(radius, widthSegments, heightSegments) {
-    let coordinates = []
+function CreateSphereData() {
+    let vertexList = [];
+    let textCoords = [];
   
     for (var i = 0; i <= sphereHeight; i++) {
       let theta = (i * Math.PI) / sphereHeight
@@ -312,12 +250,13 @@ function CreateSphereData(radius, widthSegments, heightSegments) {
         let y = cosTheta
         let z = sinPhi * sinTheta
   
-        coordinates.push(x * sphereRadius, y * sphereRadius, z * sphereRadius)
+        vertexList.push(x * sphereRadius, y * sphereRadius, z * sphereRadius)
+        textCoords.push(1, 1);
       }
     }
   
-    return coordinates
-  }
+    return [vertexList, textCoords];
+}
 
 function CalcX(u, v)
 {
@@ -347,40 +286,6 @@ function CalcZ(u, v)
     return c * Math.sqrt(a * a - (b * b * Math.cos(uRad) * Math.cos(uRad)));
 }
 
-function CalcDerivativeU(u, v, uDelta)
-{
-    let x = CalcX(u, v);
-    let y = CalcY(u, v);
-    let z = CalcZ(u, v);
-
-    let Dx = CalcX(u + uDelta, v);
-    let Dy = CalcY(u + uDelta, v);
-    let Dz = CalcZ(u + uDelta, v);
-
-    let Dxdu = (Dx - x) / deg2rad(uDelta);
-    let Dydu = (Dy - y) / deg2rad(uDelta);
-    let Dzdu = (Dz - z) / deg2rad(uDelta);
-
-    return [Dxdu, Dydu, Dzdu];
-}
-
-function CalcDerivativeV(u, v, vDelta)
-{
-    let x = CalcX(u, v);
-    let y = CalcY(u, v);
-    let z = CalcZ(u, v);
-
-    let Dx = CalcX(u, v + vDelta);
-    let Dy = CalcY(u, v + vDelta);
-    let Dz = CalcZ(u, v + vDelta);
-
-    let Dxdv = (Dx - x) / deg2rad(vDelta);
-    let Dydv = (Dy - y) / deg2rad(vDelta);
-    let Dzdv = (Dz - z) / deg2rad(vDelta);
-
-    return [Dxdv, Dydv, Dzdv];
-}
-
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
     let prog = createProgram( gl, vertexShaderSource, fragmentShaderSource );
@@ -389,38 +294,25 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
-    shProgram.iNormalVertex              = gl.getAttribLocation(prog, "normal");
     shProgram.iTextureCoords             = gl.getAttribLocation(prog, "texcoord");
     
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
 
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
-    shProgram.iWorldInverseTranspose     = gl.getUniformLocation(prog, "WorldInverseTranspose");
-    shProgram.iWorldMatrix               = gl.getUniformLocation(prog, "WorldMatrix");
-
-    shProgram.iLightWorldPosition        = gl.getUniformLocation(prog, "LightWorldPosition");
-    shProgram.iLightDirection            = gl.getUniformLocation(prog, "LightDirection");
-
-    shProgram.iViewWorldPosition         = gl.getUniformLocation(prog, "ViewWorldPosition");
     
     shProgram.iTexture                   = gl.getUniformLocation(prog, "u_texture");
 
-    shProgram.iScalePointLocation        = gl.getUniformLocation(prog, "ScalePointLocation");
-    shProgram.iScaleValue                = gl.getUniformLocation(prog, "ScaleValue");
-
-    shProgram.iScalePointWorldLocation   = gl.getUniformLocation(prog, "ScalePointWorldLocation");
-
     surface = new Model('Surface');
     let SurfaceData = CreateSurfaceData();
-    surface.BufferData(SurfaceData[0], SurfaceData[1], SurfaceData[2]);
+    surface.BufferData(SurfaceData[0], SurfaceData[1]);
 
-    surface = new Model('Sphere');
+    AudioSphere = new Model('Sphere');
     let SphereData = CreateSphereData()
-    surface.BufferData(SphereData[0], SphereData[1], SphereData[2]);
+    AudioSphere.BufferData(SphereData[0], SphereData[1]);
 
     BackgroundVideoModel = new Model();
     let BackgroundData = CreateBackgroundData();
-    BackgroundVideoModel.BufferData(BackgroundData[0], BackgroundData[1], BackgroundData[2]);
+    BackgroundVideoModel.BufferData(BackgroundData[0], BackgroundData[1]);
 }
 
 
@@ -488,7 +380,7 @@ function init() {
         return;
     }
 
- 
+
     video = document.createElement('video');
     video.setAttribute('autoplay', true);
     window.vid = video;
@@ -563,9 +455,7 @@ function BeginAudio() {
 const dataContainerOrientation = document.getElementById('dataContainerOrientation');
 
 if(window.DeviceOrientationEvent) 
-{ 
-    alert("DeviceOrientationEvent works!");
-
+{
     dataContainerOrientation.innerHTML = 'alpha: ' + SensorAlpha + '  beta: ' + SensorBeta + '  gamma: ' + SensorGamma;
 
     window.addEventListener('deviceorientation', function (event) {  
@@ -580,67 +470,6 @@ if(window.DeviceOrientationEvent)
       
         draw();
     });
-}
-
-window.addEventListener("keydown", function (event) {  
-    switch (event.key) {
-      case "ArrowLeft":
-        ProcessArrowLeftDown();
-        break;
-      case "ArrowRight":
-        ProcessArrowRightDown();
-        break;
-        case "W":
-            ProcessWDown();
-            break;
-        case "w":
-            ProcessWDown();
-            break;
-        case "S":
-            ProcessSDown();
-            break;
-        case "s":
-            ProcessSDown();
-            break;
-        case "A":
-            ProcessADown();
-            break;
-        case "a":
-            ProcessADown();
-            break;
-        case "D":
-            ProcessDDown();
-            break;
-        case "d":
-            ProcessDDown();
-            break;
-        case "+":
-            ProcessPlusDown();
-            break;
-        case "-":
-            ProcessSubtractDown();
-            break;
-      default:
-            break; 
-    }
-
-    draw();
-});
-
-function ProcessArrowLeftDown()
-{
-    InputCounter -= 0.05;
-}
-
-function ProcessArrowRightDown()
-{
-    InputCounter += 0.05;
-}
-
-function CalcParabola()
-{
-    let TParam = Math.sin(InputCounter) * 1.2;
-    return [TParam, 6, -10 + (TParam * TParam)];
 }
 
 function LoadTexture()
@@ -663,9 +492,6 @@ function LoadTexture()
     image.addEventListener('load', function() {
         gl.bindTexture(gl.TEXTURE_2D, SurfaceTexture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
-
-        console.log("Texture is loaded!");
-
         draw();
     });
 }
@@ -680,58 +506,6 @@ function SetUpWebCamTexture()
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 }
-
-function ProcessWDown()
-{
-    ScalePointLocationV -= 5.0;
-    ScalePointLocationV = clamp(ScalePointLocationV, 0.0, 90);
-}
-
-function ProcessSDown()
-{
-    ScalePointLocationV += 5.0;
-    ScalePointLocationV = clamp(ScalePointLocationV, 0.0, 90);
-}
-
-function ProcessADown()
-{
-    ScalePointLocationU -= 5.0;
-    ScalePointLocationU = clamp(ScalePointLocationU, 0.0, 360);
-}
-
-function ProcessDDown()
-{
-    ScalePointLocationU += 5.0;
-    ScalePointLocationU = clamp(ScalePointLocationU, 0.0, 360);
-}
-
-function ProcessPlusDown()
-{
-    ControllerScaleValue += 0.05;
-    ControllerScaleValue = clamp(ControllerScaleValue, 0.5, 2.0);
-}
-
-function ProcessSubtractDown()
-{
-    ControllerScaleValue -= 0.05;
-    ControllerScaleValue = clamp(ControllerScaleValue, 0.5, 2.0);
-}
-
-function clamp(value, min, max)
-{
-    if(value < min)
-    {
-        value = min
-    }
-    else if(value > max)
-    {
-        value = max;
-    }
-
-    return value;
-}
-
-
 
 function getRotationMatrix( alpha, beta, gamma ) {
 
