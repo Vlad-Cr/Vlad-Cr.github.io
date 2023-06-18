@@ -94,31 +94,35 @@ function draw() {
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
 
-    //DrawSurface();
+    DrawSurface();
     DrawSphere();
 }
 
 function DrawSphere()
 {
-    //let spaceballModelView = spaceball.getViewMatrix();
-    //let SensorRotationMatrix = getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma);
-    /*
-    if (sound.panner) {
-        sound.panner.positionX.value = sphereX
-        sound.panner.positionY.value = sphereY
-        sound.panner.positionZ.value = sphereZ
-    }
-*/
-    let ModelView = m4.translation(0, 0, 0);
-    let WorldMatrix = m4.translation(0, 0, -10);
+    let ModelView = spaceball.getViewMatrix()//getRotationMatrix(SensorAlpha, SensorBeta, SensorGamma)
+    let WorldMatrix = m4.translation(0, 0, -30);
     let ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 1, 100)
 
-    let WorldViewMatrix = m4.multiply(WorldMatrix, ModelView );
+    let WorldViewMatrix = m4.multiply(ModelView, WorldMatrix );
     let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
 
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
 
-    gl.uniform4fv(shProgram.iColor, [1.0,0.0,0.0,1] )
+    gl.uniform4fv(shProgram.iColor, [1.0,1.0,1.0,1] )
+
+    if (sound.panner) 
+    {
+        let Position = multiplyMatrixAndPoint(WorldViewMatrix, [1, 1, 1, 1])
+
+        sound.panner.positionX.value = Position[0]
+        sound.panner.positionY.value = Position[1]
+        sound.panner.positionZ.value = Position[2]
+
+        document.getElementById('sphereX').innerHTML = 'Sphere X: ' + Position[0]
+        document.getElementById('sphereY').innerHTML = 'Sphere Y: ' + Position[1]
+        document.getElementById('sphereZ').innerHTML = 'Sphere Z: ' + Position[2]
+    }
 
     AudioSphere.Draw()
 }
@@ -560,3 +564,43 @@ function getRotationMatrix( alpha, beta, gamma ) {
 
     return dst;
 }
+
+function multiplyMatrixAndPoint(matrix, point) {
+    // Give a simple variable name to each part of the matrix, a column and row number
+    let c0r0 = matrix[0],
+      c1r0 = matrix[1],
+      c2r0 = matrix[2],
+      c3r0 = matrix[3];
+    let c0r1 = matrix[4],
+      c1r1 = matrix[5],
+      c2r1 = matrix[6],
+      c3r1 = matrix[7];
+    let c0r2 = matrix[8],
+      c1r2 = matrix[9],
+      c2r2 = matrix[10],
+      c3r2 = matrix[11];
+    let c0r3 = matrix[12],
+      c1r3 = matrix[13],
+      c2r3 = matrix[14],
+      c3r3 = matrix[15];
+  
+    // Now set some simple names for the point
+    let x = point[0];
+    let y = point[1];
+    let z = point[2];
+    let w = point[3];
+  
+    // Multiply the point against each part of the 1st column, then add together
+    let resultX = x * c0r0 + y * c0r1 + z * c0r2 + w * c0r3;
+  
+    // Multiply the point against each part of the 2nd column, then add together
+    let resultY = x * c1r0 + y * c1r1 + z * c1r2 + w * c1r3;
+  
+    // Multiply the point against each part of the 3rd column, then add together
+    let resultZ = x * c2r0 + y * c2r1 + z * c2r2 + w * c2r3;
+  
+    // Multiply the point against each part of the 4th column, then add together
+    let resultW = x * c3r0 + y * c3r1 + z * c3r2 + w * c3r3;
+  
+    return [resultX, resultY, resultZ, resultW];
+  }
