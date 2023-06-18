@@ -385,7 +385,6 @@ function init() {
         return;
     }
 
-
     video = document.createElement('video');
     video.setAttribute('autoplay', true);
     window.vid = video;
@@ -402,7 +401,7 @@ function init() {
     LoadTexture()
   
     playVideo()
-    BeginAudio()
+    setupAudio()
 }
 
 function playVideo(){
@@ -437,25 +436,7 @@ function setupAudio() {
         sound.audioCtx.suspend()
       }
     })
-}
-
-function BeginAudio() {
-    setupAudio()
-  
-    let filterCheck = document.getElementById('filterCheck')
-  
-    filterCheck.addEventListener('change', () => {
-      if (filterCheck.checked) {
-        sound.panner.disconnect()
-        sound.panner.connect(sound.filter)
-        sound.filter.connect(sound.audioCtx.destination)
-      } else {
-        sound.panner.disconnect()
-        sound.panner.connect(sound.audioCtx.destination)
-      }
-    })
-    audioSource.play()
-}
+  }
 
 const dataContainerOrientation = document.getElementById('dataContainerOrientation');
 
