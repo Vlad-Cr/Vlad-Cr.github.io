@@ -85,10 +85,6 @@ function ShaderProgram(name, program) {
     }
 }
 
-let WorldMatrix = m4.translation(0, 0, -10);
-let ModelView = m4.translation(0, 0, 0);
-let ProjectionMatrix = m4.translation(0, 0, 0);
-
 function draw() { 
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -98,8 +94,9 @@ function draw() {
 
     DrawWebCamVideo();
 
-    ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 8, 12)
-    //DrawSurface();
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+
+    DrawSurface();
     //DrawSphere();
 }
 
@@ -131,24 +128,20 @@ function DrawSphere()
 
 function DrawSurface()
 {
-    let rotateToPointZero = m4.axisRotation([0.107, 0.707, 0], 0.7)
+    let ModelView = m4.translation(0, 0, 0);
+    let WorldMatrix = m4.translation(0, 0, -15);
+    let ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 1, 100)
+
+    let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7)
     let matAccum0 = m4.multiply(rotateToPointZero, ModelView)
-    let WorldViewMatrix = m4.multiply(WorldMatrix, ModelView );
+
+    let WorldViewMatrix = m4.multiply(WorldMatrix, matAccum0 );
     let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
 
-    let worldInverseMatrix = m4.inverse(WorldViewMatrix);
-    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
-
-    gl.uniform3fv(shProgram.iLightWorldPosition, CalcParabola());
-    gl.uniform3fv(shProgram.iLightDirection, [0, -1, 0]);
-
-    gl.uniformMatrix4fv(shProgram.iWorldInverseTranspose, false, worldInverseTransposeMatrix);
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
-    gl.uniformMatrix4fv(shProgram.iWorldMatrix, false, WorldViewMatrix );
-    
-    gl.uniform4fv(shProgram.iColor, [0.5,0.5,0.5,1] );
-    gl.uniform2fv(shProgram.iScalePointLocation, [ScalePointLocationU / 360.0, ScalePointLocationV / 90.0] );
-    gl.uniform1f(shProgram.iScaleValue, ControllerScaleValue);
+
+    gl.uniform4fv(shProgram.iColor, [0.0,0.0,0.0,1] );
+
     gl.bindTexture(gl.TEXTURE_2D, SurfaceTexture);
     gl.uniform1i(shProgram.iTexture, 0);
     
@@ -157,7 +150,8 @@ function DrawSurface()
 
 function DrawWebCamVideo()
 {
-    gl.uniform4fv(shProgram.iColor, [0.0,0.0,0.0,1] )
+    gl.uniform4fv(shProgram.iColor, [0.0,0.0,0.0,1])
+
     gl.bindTexture(gl.TEXTURE_2D, TextureWebCam);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
     
