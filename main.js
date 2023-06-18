@@ -21,9 +21,7 @@ let AudioSphere;
 let sound = { audioCtx: null, source: null, panner: null, filter: null }
 let audioSource = null
 
-let sphereRadius = 0.5
-let sphereWidth = 5
-let sphereHeight = 5
+let sphereRadius = 0.3
 
 let sphereX = 0
 let sphereY = 0
@@ -96,8 +94,8 @@ function draw() {
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
 
-    DrawSurface();
-    //DrawSphere();
+    //DrawSurface();
+    DrawSphere();
 }
 
 function DrawSphere()
@@ -111,15 +109,14 @@ function DrawSphere()
         sound.panner.positionZ.value = sphereZ
     }
 */
+    let ModelView = m4.translation(0, 0, 0);
+    let WorldMatrix = m4.translation(0, 0, -10);
+    let ProjectionMatrix = m4.perspective(Math.PI / 8, 1, 1, 100)
+
     let WorldViewMatrix = m4.multiply(WorldMatrix, ModelView );
     let ModelViewProjection = m4.multiply(ProjectionMatrix, WorldViewMatrix);
 
-    let worldInverseMatrix = m4.inverse(WorldViewMatrix);
-    let worldInverseTransposeMatrix = m4.transpose(worldInverseMatrix);
-
-    gl.uniformMatrix4fv(shProgram.iWorldInverseTranspose, false, worldInverseTransposeMatrix);
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, ModelViewProjection );
-    gl.uniformMatrix4fv(shProgram.iWorldMatrix, false, WorldViewMatrix );
 
     gl.uniform4fv(shProgram.iColor, [1.0,0.0,0.0,1] )
 
@@ -229,26 +226,40 @@ function CreateSurfaceData()
 function CreateSphereData() {
     let vertexList = [];
     let textCoords = [];
+
+    let thetaStep = Math.PI / 10.0
+    let phiStep = Math.PI / 10.0
+
+    for(let theta = 0.0; theta < Math.PI; theta = theta + thetaStep)
+    {
+        let sinTheta = Math.sin(theta)
+        let cosTheta = Math.cos(theta)
+
+        let thetaNext = theta + thetaStep
+        let sinThetaNext = Math.sin(thetaNext)
+        let cosThetaNext = Math.cos(thetaNext)
+
+        for(let phi = 0.0; phi < 2.0 * Math.PI; phi = phi + phiStep)
+        {
+            let sinPhi = Math.sin(phi)
+            let cosPhi = Math.cos(phi)
+
+            let x = sphereRadius * cosPhi * sinTheta
+            let y = sphereRadius * sinPhi * sinTheta
+            let z = sphereRadius * cosTheta
   
-    for (var i = 0; i <= sphereHeight; i++) {
-      let theta = (i * Math.PI) / sphereHeight
-      let sinTheta = Math.sin(theta)
-      let cosTheta = Math.cos(theta)
-  
-      for (var j = 0; j <= sphereWidth; j++) {
-        let phi = (j * 2 * Math.PI) / sphereWidth
-        let sinPhi = Math.sin(phi)
-        let cosPhi = Math.cos(phi)
-  
-        let x = cosPhi * sinTheta
-        let y = cosTheta
-        let z = sinPhi * sinTheta
-  
-        vertexList.push(x * sphereRadius, y * sphereRadius, z * sphereRadius)
-        textCoords.push(1, 1);
-      }
+            vertexList.push(x, y, z)
+            textCoords.push(1, 1);
+
+            x = sphereRadius * cosPhi * sinThetaNext
+            y = sphereRadius * sinPhi * sinThetaNext
+            z = sphereRadius * cosThetaNext
+
+            vertexList.push(x, y, z)
+            textCoords.push(1, 1);
+        }
     }
-  
+
     return [vertexList, textCoords];
 }
 
